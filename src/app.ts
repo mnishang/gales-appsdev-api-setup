@@ -1,16 +1,18 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import hpp from "hpp";
-import cookieParser from "cookie-parser";
+import { ENV } from "@/config/env";
 
 const app = express();
 
+// --- Core Middleware ---
 app.use(helmet());
 
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: ENV.FRONTEND_URL,
     credentials: true,
   })
 );
@@ -20,15 +22,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(hpp());
 
-app.get("/", (_req, res) => {
-  res.json({
+// --- Simple Health Check ---
+app.get("/", (req: Request, res: Response) => {
+  res.status(200).json({
     status: "success",
-    message: "AppsDev API is running",
+    message: `${ENV.APP_NAME} instance is healthy - 3B - New Features!`,
     timestamp: new Date().toISOString(),
+    environment: ENV.NODE_ENV,
   });
 });
 
-app.get("/api/health", (_req, res) => {
+// --- API Health Check ---
+app.get("/api/health", (_req: Request, res: Response) => {
   res.status(200).json({
     status: "success",
     message: "API is healthy",
@@ -36,11 +41,43 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.use((_req, res) => {
+// --- 404 Handler ---
+app.use((req: Request, res: Response) => {
   res.status(404).json({
     status: "error",
-    message: "Route not found",
+    message: `Cannot ${req.method} ${req.originalUrl}`,
   });
 });
+
+app.use(
+  (
+    err: unknown,
+    req: Request,
+    res: Response,
+    _next: NextFunction
+  ) => {
+    console.error("🔥 Global Error Hook:", err);
+
+    const error = err instanceof Error ? err : new Error(String(err));
+    const statusCode =
+      typeof err === "object" &&
+      err !== null &&
+      "status" in err &&
+      typeof err.status === "number"
+        ? err.status
+        : 500;
+
+    res.status(statusCode).json({
+      status: "error",
+      message:
+        ENV.NODE_ENV === "production"
+          ? "Internal Server Error"
+          : error.message,
+      ...(ENV.NODE_ENV !== "production" && {
+        stack: error.stack,
+      }),
+    });
+  }
+);
 
 export default app;

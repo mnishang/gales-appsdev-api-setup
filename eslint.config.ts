@@ -9,6 +9,19 @@ export default tseslint.config(
       "src/prisma/contract.d.ts",
     ],
   },
+
   js.configs.recommended,
+
   ...tseslint.configs.recommended,
+
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 );
